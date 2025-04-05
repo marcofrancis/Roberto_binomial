@@ -1,8 +1,8 @@
 import numpy as np
 import scipy.stats
 import scipy
-import matplotlib.pyplot as plt
 import pandas as pd
+from statsmodels.stats.proportion import proportion_confint
 
 def CreateConfusionMatrix(TPR,TNR,Npos,Nneg ,Montecarlo_sample=10**4, ord="01"):
   """
@@ -45,6 +45,50 @@ def CreateConfusionMatrix(TPR,TNR,Npos,Nneg ,Montecarlo_sample=10**4, ord="01"):
     CM[1,1,:] = TN
 
   return CM
+
+def ConfidenceIntervalTXR(TPR, TNR, Npos=None, Nneg=None, prevalence=None, Ntot=None, alpha=0.05):
+  """
+  Calculate the confidence interval of the TPR and TNR using statsmodels
+  Args:
+    TPR: True Positive Rate
+    TNR: True Negative Rate
+    Npos: Number of positive samples (optional if prevalence and Ntot are provided)
+    Nneg: Number of negative samples (optional if prevalence and Ntot are provided)
+    prevalence: Prevalence of positive samples (optional if Npos and Nneg are provided)
+    Ntot: Total number of samples (optional if Npos and Nneg are provided)
+    alpha: Significance level
+  Returns:
+    TPR_CI: Confidence interval of the TPR
+    TNR_CI: Confidence interval of the TNR
+  """
+  # Check which parameters were provided and calculate Npos and Nneg if needed
+  if Npos is None or Nneg is None:
+    if prevalence is None or Ntot is None:
+      raise ValueError("Either (Npos, Nneg) or (prevalence, Ntot) must be provided")
+    
+    Npos = (prevalence * Ntot).astype(int)
+    Nneg = Ntot - Npos
+  
+  TPR_CI = proportion_confint(Npos * TPR, Npos, alpha=alpha, method='beta')
+  TNR_CI = proportion_confint(Nneg * TNR, Nneg, alpha=alpha, method='beta')
+  return TPR_CI, TNR_CI
+
+def ConfidenceIntervalTXR_array(TPR, TNR, prevalence, Ntot_min, Ntot_max, alpha=0.05, num_points=10):
+  """
+  Calculate the confidence interval of the TPR and TNR using statsmodels
+  Args:
+    TPR: True Positive Rate
+    TNR: True Negative Rate
+    Ntot_min: Minimum number of total samples
+    Ntot_max: Maximum number of total samples
+    alpha: Significance level
+  Returns:
+    TPR_CI: Confidence interval of the TPR
+    TNR_CI: Confidence interval of the TNR
+  """
+  Ntot_vec = np.linspace(Ntot_min, Ntot_max, num_points)
+  TPR_CI, TNR_CI = ConfidenceIntervalTXR(TPR, TNR, prevalence=prevalence, Ntot=Ntot_vec, alpha=alpha)
+  return TPR_CI, TNR_CI, Ntot_vec
 
 def CalculateStatistic(CM,ord="01"):
   """
